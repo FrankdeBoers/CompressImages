@@ -1,0 +1,17 @@
+<resources>
+
+
+
+    <style name="IosSwitch">
+        <item name="android:layout_width">44dp</item>
+        <item name="android:layout_height">24dp</item>
+        <item name="kswThumbWidth">16dp</item>
+        <item name="kswThumbHeight">16dp</item>
+        <item name="kswThumbMarginLeft">4dp</item>
+        <item name="kswThumbMarginTop">4dp</item>
+        <item name="kswThumbMarginRight">4dp</item>
+        <item name="kswThumbMarginBottom">4dp</item>
+        <item name="kswBackRadius">12dp</item>
+    </style>
+
+</resources>
