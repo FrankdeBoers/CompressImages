@@ -24,7 +24,14 @@ import com.bumptech.glide.load.DataSource
 import com.bumptech.glide.load.engine.GlideException
 import com.bumptech.glide.request.RequestListener
 import com.frank.compressimage.databinding.ActivityMainBinding
+import com.frank.compressimage.model.Constants.CODE_IN
+import com.frank.compressimage.model.Constants.CODE_OUT
+import com.frank.compressimage.model.Constants.NEW_OUT_PATH
+import com.frank.compressimage.model.Constants.NEW_SRC_PATH
+import com.frank.compressimage.model.Constants.UI_MODEL
 import com.frank.compressimage.model.UiModel
+import com.frank.compressimage.setting.OtherSetting
+import com.google.gson.Gson
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -61,7 +68,7 @@ class MainActivity : AppCompatActivity() {
     private var finishedCount = 0
 
     // 各种UI参数
-    private lateinit var uiModel: UiModel
+    private var uiModel: UiModel = UiModel()
 
     // 支持压缩的格式
     private val imageEndFixList = listOf("jpg", "jpeg", "png")
@@ -84,21 +91,7 @@ class MainActivity : AppCompatActivity() {
         sp.edit()
     }
 
-    companion object {
-        const val CODE_IN = 1000
-        const val CODE_OUT = 1001
-
-        const val IS_REPLACE = "is_replace"
-
-        // 移动而不是复制
-        const val IS_DELETE = "is_delete"
-
-        // 选择的路径
-        const val NEW_SRC_PATH = "new_src"
-
-        // 是否保持修改时间
-        const val KEEP_MODIFIED = "keep_modified"
-    }
+    private val gson by lazy { Gson() }
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -111,41 +104,35 @@ class MainActivity : AppCompatActivity() {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
+        refreshParams()
         initView()
         initClick()
         getPermission()
-        refreshParams()
     }
 
     private fun refreshParams() {
-        uiModel = UiModel(
-            isKeepModifyTime = binding.keepModifyTime.isChecked,
-            isDeleteSrcFile = binding.deleteSrcFile.isChecked,
-            replaceIfExist = binding.replaceCheckBox.isChecked
-        )
+        aInputPath = binding.pathInput.text.toString()
+        outputPath = binding.pathOutput.text.toString()
+        kotlin.runCatching {
+            uiModel = gson.fromJson(sp.getString(UI_MODEL, ""), UiModel::class.java)
+        }.onFailure {
+            Log.e("", "$logTag refreshParams failed", it)
+        }
     }
 
     private fun initView() {
-        // 删除源文件，保持上次选择的开关
-        binding.deleteSrcFile.isChecked = sp.getBoolean(IS_DELETE, false)
-        binding.deleteSrcFile.setOnCheckedChangeListener { _, isChecked ->
-            editor.putBoolean(IS_DELETE, isChecked)
-            // 提交修改
-            editor.apply() // 异步提交，无返回值
-        }
-
-        // 覆盖同名文件，保持上次选择的开关
-        binding.replaceCheckBox.isChecked = sp.getBoolean(IS_REPLACE, false)
-        binding.replaceCheckBox.setOnCheckedChangeListener { _, isChecked ->
-            editor.putBoolean(IS_REPLACE, isChecked)
+        // 记录上次选择的路径
+        binding.pathInput.setText(sp.getString(NEW_SRC_PATH, "/sdcard/src"))
+        binding.pathInput.addTextChangedListener {
+            editor.putString(NEW_SRC_PATH, binding.pathInput.text.toString())
             // 提交修改
             editor.apply() // 异步提交，无返回值
         }
 
         // 记录上次选择的路径
-        binding.pathInput.setText(sp.getString(NEW_SRC_PATH, "/sdcard/src"))
-        binding.pathInput.addTextChangedListener {
-            editor.putString(NEW_SRC_PATH, binding.pathInput.text.toString())
+        binding.pathOutput.setText(sp.getString(NEW_OUT_PATH, "/sdcard/out"))
+        binding.pathOutput.addTextChangedListener {
+            editor.putString(NEW_OUT_PATH, binding.pathOutput.text.toString())
             // 提交修改
             editor.apply() // 异步提交，无返回值
         }
@@ -163,6 +150,7 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this, "正在压缩中，请稍后！", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
+            // 刷新参数
             refreshParams()
             isInCompressing = true
             reset()
@@ -171,8 +159,7 @@ class MainActivity : AppCompatActivity() {
             maxResolutionWidth = binding.edSetWidth.text.toString().toFloat()
 
             lifecycleScope.launch {
-                aInputPath = binding.pathInput.text.toString()
-                outputPath = binding.pathOutput.text.toString()
+
                 if (!File(aInputPath).exists()) {
                     File(aInputPath).mkdirs()
                 }
@@ -212,28 +199,9 @@ class MainActivity : AppCompatActivity() {
             chooseSystemFile(CODE_OUT)
         }
 
-        // 删除源文件
-        binding.deleteSrcFile.isChecked = sp.getBoolean(IS_DELETE, false)
-        binding.deleteSrcFile.setOnCheckedChangeListener { _, isChecked ->
-            editor.putBoolean(IS_DELETE, isChecked)
-            // 提交修改
-            editor.apply() // 异步提交，无返回值
-        }
-
-        // 覆盖同名文件
-        binding.replaceCheckBox.isChecked = sp.getBoolean(IS_REPLACE, false)
-        binding.replaceCheckBox.setOnCheckedChangeListener { _, isChecked ->
-            editor.putBoolean(IS_REPLACE, isChecked)
-            // 提交修改
-            editor.apply() // 异步提交，无返回值
-        }
-
-        // 保持文件修改时间
-        binding.keepModifyTime.isChecked = sp.getBoolean(KEEP_MODIFIED, false)
-        binding.keepModifyTime.setOnCheckedChangeListener { _, isChecked ->
-            editor.putBoolean(KEEP_MODIFIED, isChecked)
-            // 提交修改
-            editor.apply() // 异步提交，无返回值
+        // 使用系统文件夹选择
+        binding.setting.setOnClickListener {
+            startActivity(Intent(this, OtherSetting::class.java))
         }
     }
 
@@ -501,7 +469,7 @@ class MainActivity : AppCompatActivity() {
         binding.compressFailedList.text = "压缩失败列表:\n" + (compressFailedList.joinToString(", "))
         binding.copyFailedList.text = "拷贝失败列表:\n" + (copyFailedList.joinToString(", "))
         // 删除源文件中的空文件夹
-        if (binding.deleteSrcFile.isChecked) {
+        if (uiModel.isDeleteSrcFile) {
             val allEmptyDir = findEmptyFolders(File(aInputPath))
             Log.i("", "$logTag afterFinish allEmptyDir:$allEmptyDir")
             allEmptyDir.forEach {

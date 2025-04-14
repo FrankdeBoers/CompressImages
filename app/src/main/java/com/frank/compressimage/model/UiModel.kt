@@ -6,9 +6,9 @@ import androidx.annotation.Keep
 data class UiModel(
     // 是否保持文件修改时间，true：读取源文件修改日期并写入；false：使用程序运行时间
     // 默认是true
-    val isKeepModifyTime: Boolean = true,
+    var isKeepModifyTime: Boolean = true,
     // 压缩成功后是否删除源文件，节省空间
-    val isDeleteSrcFile: Boolean = false,
+    var isDeleteSrcFile: Boolean = false,
     // 目标路径存在同名文件，是否替换
-    val replaceIfExist: Boolean = false,
+    var replaceIfExist: Boolean = false,
 )

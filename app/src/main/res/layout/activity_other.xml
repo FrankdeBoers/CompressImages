@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#F5F5F8"
+    tools:context=".setting.OtherSetting">
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="50dp"
+        android:paddingBottom="50dp">
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#F5F5F8">
+
+            <com.google.android.flexbox.FlexboxLayout
+                android:id="@+id/setting"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:layout_marginTop="10dp"
+                android:layout_marginEnd="10dp"
+                android:background="@drawable/rect_12_white"
+                android:paddingHorizontal="10dp"
+                android:paddingBottom="10dp"
+                app:alignItems="flex_start"
+                app:flexDirection="row"
+                app:flexWrap="wrap"
+                app:justifyContent="flex_start"
+                app:layout_constraintTop_toTopOf="parent">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:layout_marginEnd="20dp"
+                    android:orientation="horizontal">
+
+                    <com.kyleduo.switchbutton.SwitchButton
+                        android:id="@+id/replaceCheckBox"
+                        style="@style/IosSwitch"
+                        android:layout_width="40dp"
+                        android:layout_height="24dp"
+                        app:kswBackColor="@color/selector_switch_color"
+                        app:kswThumbColor="@color/color_base_white_1"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintTop_toTopOf="parent" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="覆盖同名文件"
+                        android:textColor="#181A23"
+                        android:textSize="16dp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:layout_marginEnd="20dp"
+                    android:orientation="horizontal">
+
+                    <com.kyleduo.switchbutton.SwitchButton
+                        android:id="@+id/keepModifyTime"
+                        style="@style/IosSwitch"
+                        android:layout_width="40dp"
+                        android:layout_height="24dp"
+                        app:kswBackColor="@color/selector_switch_color"
+                        app:kswThumbColor="@color/color_base_white_1"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintTop_toTopOf="parent" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="保持文件修改时间"
+                        android:textColor="#181A23"
+                        android:textSize="16dp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:layout_marginEnd="20dp"
+                    android:orientation="horizontal">
+
+                    <com.kyleduo.switchbutton.SwitchButton
+                        android:id="@+id/deleteSrcFile"
+                        style="@style/IosSwitch"
+                        android:layout_width="40dp"
+                        android:layout_height="24dp"
+                        app:kswBackColor="@color/selector_switch_color"
+                        app:kswThumbColor="@color/color_base_white_1"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintTop_toTopOf="parent" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="删除源文件（以及空文件夹）"
+                        android:textColor="#181A23"
+                        android:textSize="16dp" />
+                </LinearLayout>
+
+            </com.google.android.flexbox.FlexboxLayout>
+
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+    </androidx.core.widget.NestedScrollView>
+</LinearLayout>

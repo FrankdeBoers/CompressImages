@@ -23,6 +23,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".setting.OtherSetting"
+            android:exported="true">
+        </activity>
     </application>
 
 </manifest>
