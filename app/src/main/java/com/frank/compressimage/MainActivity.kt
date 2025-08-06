@@ -44,7 +44,6 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
-import java.lang.ref.WeakReference
 import java.util.Collections
 import java.util.concurrent.Semaphore
 import kotlin.math.max
@@ -88,13 +87,12 @@ class MainActivity : AppCompatActivity() {
 
     // 内存管理相关变量
     private val compressionScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private val semaphore = Semaphore(3) // 限制同时压缩3张图片
-    private val weakContext = WeakReference<Context>(this)
+    private val semaphore = Semaphore(10) // 限制同时压缩10张图片
 
     @get:Synchronized
     @set:Synchronized
     private var isInCompressing = false
-    
+
     // 任务取消控制
     private var compressionJob: Job? = null
     private var isCancelled = false
@@ -108,7 +106,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private val gson by lazy { Gson() }
-    
+
     // 信号量扩展函数，确保资源正确释放
     private suspend fun <T> Semaphore.withPermit(block: suspend () -> T): T {
         try {
@@ -146,6 +144,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    @SuppressLint("SdCardPath")
     private fun initView() {
         // 记录上次选择的路径
         binding.pathInput.setText(sp.getString(NEW_SRC_PATH, "/sdcard/src"))
@@ -188,8 +187,6 @@ class MainActivity : AppCompatActivity() {
             // 创建新的压缩任务
             compressionJob = lifecycleScope.launch {
                 try {
-                    logMemoryUsage("压缩任务开始")
-                    
                     if (!File(aInputPath).exists()) {
                         File(aInputPath).mkdirs()
                     }
@@ -202,13 +199,13 @@ class MainActivity : AppCompatActivity() {
                         // 需要处理的文件
                         val inputFiles = mutableListOf("")
                         findAllImages(File(aInputPath), inputFiles)
-                        
+
                         // 检查是否被取消
                         if (isCancelled) {
                             Log.i(logTag, "压缩任务被取消")
                             return@withContext
                         }
-                        
+
                         // 已经完成处理的文件
                         val finishedFiles = mutableListOf("")
                         findAllImages(File(outputPath), finishedFiles)
@@ -221,12 +218,12 @@ class MainActivity : AppCompatActivity() {
                         } else {
                             inputFiles.minus(renameFinishedFiles.toSet())
                         }
-                        
+
                         if (isCancelled) {
                             Log.i(logTag, "压缩任务被取消")
                             return@withContext
                         }
-                        
+
                         compressAllImages(resultList)
                     }
                 } catch (e: Exception) {
@@ -235,7 +232,6 @@ class MainActivity : AppCompatActivity() {
                         Toast.makeText(this@MainActivity, "压缩任务异常: ${e.message}", Toast.LENGTH_SHORT).show()
                     }
                 } finally {
-                    logMemoryUsage("压缩任务结束")
                     isInCompressing = false
                     compressionJob = null
                 }
@@ -261,7 +257,7 @@ class MainActivity : AppCompatActivity() {
     private suspend fun compressAllImages(fileList: List<String>) {
         totalCount = fileList.size
         Log.i(logTag, "开始压缩 $totalCount 个文件，并发限制: 3")
-        
+
         val jobs = fileList.map { srcFilePath ->
             compressionScope.launch {
                 try {
@@ -270,7 +266,7 @@ class MainActivity : AppCompatActivity() {
                         Log.i(logTag, "压缩任务被取消，跳过: $srcFilePath")
                         return@launch
                     }
-                    
+
                     // 使用信号量限制并发数量
                     semaphore.withPermit {
                         val outFilePath = srcFilePath.replace(aInputPath, outputPath)
@@ -294,7 +290,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-        
+
         // 等待所有任务完成或被取消
         jobs.joinAll()
         Log.i(logTag, if (isCancelled) "压缩任务被取消" else "所有压缩任务完成")
@@ -333,7 +329,7 @@ class MainActivity : AppCompatActivity() {
             if (files != null) {
                 val subDirs = mutableListOf<File>()
                 val imageFiles = mutableListOf<String>()
-                
+
                 // 先分类文件和目录
                 for (childFile in files) {
                     when {
@@ -341,10 +337,10 @@ class MainActivity : AppCompatActivity() {
                         childFile.isFile && isImageFile(childFile) -> imageFiles.add(childFile.absolutePath)
                     }
                 }
-                
+
                 // 添加当前目录的图片文件
                 result.addAll(imageFiles)
-                
+
                 // 并行处理子目录
                 val subDirJobs = subDirs.map { subDir ->
                     async {
@@ -352,7 +348,7 @@ class MainActivity : AppCompatActivity() {
                         findAllImages(subDir, mutableListOf())
                     }
                 }
-                
+
                 // 等待所有子目录处理完成
                 val subDirResults = subDirJobs.awaitAll()
                 result.addAll(subDirResults.flatten())
@@ -360,7 +356,7 @@ class MainActivity : AppCompatActivity() {
             return@withContext result
         }
     }
-    
+
     // 判断是否为图片文件
     private fun isImageFile(file: File): Boolean {
         val extension = file.extension.lowercase()
@@ -400,14 +396,14 @@ class MainActivity : AppCompatActivity() {
             binding.loadingProgress.setProgress(process, true)
             binding.tvProgress.text = "$finishedCount / $totalCount"
         }
-        
+
         // 无法压缩，直接拷贝
         if (!canCompress(srcPath) || !isNeedCompress(srcPath)) {
             copyFile(srcPath, destFilePath)
             return
         }
-        
-        loadAndSaveImage(this@MainActivity,
+
+        loadAndSaveImage(
             srcPath,
             destFilePath,
             failCallback = {
@@ -433,14 +429,14 @@ class MainActivity : AppCompatActivity() {
 
     private fun copyFile(srcFilePath: String, outFilePath: String) {
         Log.i(logTag, "开始拷贝: $srcFilePath, size: ${File(srcFilePath).length() / 1024L}Kb")
-        
+
         try {
             val sourceFile = File(srcFilePath)
             val destinationFile = File(outFilePath)
-            
+
             // 确保目标目录存在
             destinationFile.parentFile?.mkdirs()
-            
+
             // 使用try-with-resources确保资源正确关闭
             FileInputStream(sourceFile).use { inputStream ->
                 FileOutputStream(destinationFile).use { outputStream ->
@@ -453,14 +449,14 @@ class MainActivity : AppCompatActivity() {
                     outputStream.flush()
                 }
             }
-            
+
             // 保持文件修改时间
             if (uiModel.isKeepModifyTime) {
                 destinationFile.setLastModified(sourceFile.lastModified())
             }
-            
+
             Log.i(logTag, "拷贝成功: $srcFilePath -> $outFilePath")
-            
+
         } catch (e: Exception) {
             Log.e(logTag, "拷贝失败: $srcFilePath", e)
             copyFailedList.add(srcFilePath)
@@ -470,10 +466,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun loadAndSaveImage(context: Context, srcPath: String, destFilePath: String, failCallback: () -> Unit) {
-        // 使用弱引用避免内存泄漏
-        val weakContext = WeakReference(context)
-        
+    private fun loadAndSaveImage(srcPath: String, destFilePath: String, failCallback: () -> Unit) {
         // 第一次解码，只获取图片的尺寸信息
         val options = BitmapFactory.Options()
         options.inJustDecodeBounds = true
@@ -487,14 +480,7 @@ class MainActivity : AppCompatActivity() {
         val targetWidth = originWidth / ratio
         val targetHeight = originHeight / ratio
 
-        // 检查Context是否还存在
-        val currentContext = weakContext.get() ?: run {
-            Log.w(logTag, "Context已被回收，取消图片压缩: $srcPath")
-            failCallback.invoke()
-            return
-        }
-
-        Glide.with(currentContext)
+        Glide.with(applicationContext)
             .asBitmap()
             .override(targetWidth.toInt(), targetHeight.toInt())
             .load(srcPath)
@@ -505,11 +491,8 @@ class MainActivity : AppCompatActivity() {
                     target: com.bumptech.glide.request.target.Target<Bitmap>,
                     isFirstResource: Boolean,
                 ): Boolean {
-                    val context = weakContext.get()
-                    if (context != null) {
-                        runOnUiThread {
-                            Toast.makeText(context, "图片加载失败: $srcPath", Toast.LENGTH_SHORT).show()
-                        }
+                    runOnUiThread {
+                        Toast.makeText(applicationContext, "图片加载失败: $srcPath", Toast.LENGTH_SHORT).show()
                     }
                     Log.e(logTag, "图片加载失败: $srcPath", e)
                     failCallback.invoke()
@@ -528,11 +511,11 @@ class MainActivity : AppCompatActivity() {
                         val srcFile = File(srcPath)
                         val destFile = File(destFilePath)
                         val parentDir = destFile.parentFile
-                        
+
                         if (parentDir != null && !parentDir.exists()) {
                             parentDir.mkdirs()
                         }
-                        
+
                         FileOutputStream(destFile).use { outputStream ->
                             // 压缩质量，范围 0 - 100，数值越小压缩率越高
                             resource.compress(Bitmap.CompressFormat.JPEG, maxQuality, outputStream)
@@ -541,22 +524,19 @@ class MainActivity : AppCompatActivity() {
                                 destFile.setLastModified(srcFile.lastModified())
                             }
                         }
-                        
+
                         // 删除源文件
                         if (uiModel.isDeleteSrcFile) {
                             srcFile.delete()
                         }
-                        
+
                         // 记录压缩成功
                         Log.i(logTag, "压缩成功: $srcPath -> $destFilePath")
-                        
+
                     } catch (e: Exception) {
                         Log.e(logTag, "图片保存失败: $srcPath", e)
-                        val context = weakContext.get()
-                        if (context != null) {
-                            runOnUiThread {
-                                Toast.makeText(context, "图片保存失败：${e.message}", Toast.LENGTH_SHORT).show()
-                            }
+                        runOnUiThread {
+                            Toast.makeText(applicationContext, "图片保存失败：${e.message}", Toast.LENGTH_SHORT).show()
                         }
                         failCallback.invoke()
                     } finally {
@@ -578,6 +558,7 @@ class MainActivity : AppCompatActivity() {
         startActivityForResult(intent, code)
     }
 
+    @SuppressLint("SetTextI18n", "SdCardPath")
     @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
@@ -608,34 +589,6 @@ class MainActivity : AppCompatActivity() {
         compressFailedList.clear()
         copyFailedList.clear()
         finishedCount = 0
-    }
-    
-    // 取消压缩任务
-    private fun cancelCompression() {
-        if (!isInCompressing) return
-        
-        Log.i(logTag, "用户取消压缩任务")
-        isCancelled = true
-        compressionJob?.cancel()
-        
-        runOnUiThread {
-            Toast.makeText(this, "压缩任务已取消", Toast.LENGTH_SHORT).show()
-            binding.loadingProgress.setProgress(0, true)
-            binding.tvProgress.text = "0 / 0"
-        }
-        
-        isInCompressing = false
-        compressionJob = null
-    }
-    
-    // 内存监控
-    private fun logMemoryUsage(tag: String) {
-        val runtime = Runtime.getRuntime()
-        val usedMemory = runtime.totalMemory() - runtime.freeMemory()
-        val maxMemory = runtime.maxMemory()
-        val memoryUsagePercent = (usedMemory * 100 / maxMemory).toInt()
-        
-        Log.i(logTag, "$tag - 内存使用: ${usedMemory / 1024 / 1024}MB / ${maxMemory / 1024 / 1024}MB ($memoryUsagePercent%)")
     }
 
     @SuppressLint("SetTextI18n")
